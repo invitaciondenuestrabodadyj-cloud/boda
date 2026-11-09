@@ -46,6 +46,19 @@
 .photo-like[aria-pressed="true"] svg{fill:currentColor}
 .photo-like:hover svg{transform:scale(1.13)}
 .photo-like:active svg{transform:scale(.93)}
+
+#rsvp-form .submit-status{min-height:1.4em;margin:3px 0 0;font-size:.82rem;line-height:1.5;color:#52644c}
+#rsvp-form .btn:disabled,#asistencia .rsvp-options .btn:disabled{opacity:.65;cursor:wait}
+#rsvp-form.is-sending .btn{position:relative}
+#rsvp-form.is-sending .btn:after{content:"";display:inline-block;width:11px;height:11px;margin-left:9px;border:2px solid #ffffff70;border-top-color:#fff;border-radius:50%;vertical-align:-2px;animation:rsvp-spin .7s linear infinite}
+#rsvp-form.is-success{background:#f4f3e8}
+#rsvp-form .success-mark{display:none;color:#657a5d;font:italic 2rem 'Cormorant Garamond',Georgia,serif;text-align:center}
+#rsvp-form.is-success .success-mark{display:block}
+@keyframes rsvp-spin{to{transform:rotate(360deg)}}
+.confetti-piece{position:fixed;z-index:30;top:0;left:0;width:9px;height:13px;pointer-events:none;will-change:transform,opacity;animation:confetti-fall var(--duration,1.4s) cubic-bezier(.15,.65,.35,1) forwards}
+@keyframes confetti-fall{0%{transform:translate3d(var(--x),var(--y),0) rotate(0) scale(1);opacity:1}100%{transform:translate3d(calc(var(--x) + var(--drift)),calc(var(--y) + var(--fall)),0) rotate(var(--spin)) scale(.65);opacity:0}}
+@media(prefers-reduced-motion:reduce){.confetti-piece{display:none}#rsvp-form .btn:after{animation:none}}
+
 @media(prefers-reduced-motion:reduce){.photo-like svg{transition:none}}
 </style><body><svg class="wedding-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
 <symbol id="olive-branch" viewBox="0 0 150 180"><path d="M17 163C49 130 77 94 126 23" fill="none" stroke="currentColor" stroke-width="1.7"/><g fill="currentColor"><path opacity=".65" d="M39 138C19 136 9 118 9 102c19 5 28 16 30 36ZM56 121c4-17 25-27 44-25-6 16-23 26-44 25ZM65 109C42 102 31 82 36 64c17 8 29 23 29 45ZM81 89c8-21 31-28 53-25-9 20-31 27-53 25ZM92 75C73 67 65 51 69 32c17 8 25 26 23 43ZM108 49c7-17 22-25 41-24-7 17-23 27-41 24ZM124 25c-4-13 4-22 14-25 2 11-2 20-14 25Z"/></g></symbol>
@@ -79,7 +92,9 @@
   <input id="rsvp-name" name="Nombre" type="text" autocomplete="name" maxlength="100" required>
   <label for="rsvp-comment">Comentario <span>(opcional)</span></label>
   <textarea id="rsvp-comment" name="Comentario" rows="3" maxlength="500" placeholder="Si quieres, déjanos un mensaje"></textarea>
+  <p class="success-mark" aria-hidden="true">¡Gracias por responder!</p>
   <button class="btn" type="submit">Enviar</button>
+  <p class="submit-status" id="rsvp-status" role="status" aria-live="polite"></p>
 </form>
 <noscript><p>Activa JavaScript para confirmar tu asistencia.</p></noscript>
 </section></main><footer><div class="serif">Jeampier & Dayana</div><p>13.01.2027 · SANTIAGO</p><p style="color:#7b8972">Con amor, para compartir contigo.</p></footer>
@@ -110,25 +125,72 @@ if('IntersectionObserver' in window&&!matchMedia('(prefers-reduced-motion: reduc
   const form = document.getElementById('rsvp-form');
   const answer = document.getElementById('rsvp-answer');
   const name = document.getElementById('rsvp-name');
+  const status = document.getElementById('rsvp-status');
   const choices = [...document.querySelectorAll('[data-rsvp]')];
+  const submit = form.querySelector('button[type="submit"]');
+  let sending = false;
+
   choices.forEach(button => button.addEventListener('click', () => {
+    if (sending) return;
     answer.value = button.dataset.rsvp;
     choices.forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
     form.hidden = false;
+    status.textContent = '';
     name.focus();
   }));
+
   name.addEventListener('input', () => name.setCustomValidity(''));
-  form.addEventListener('submit', event => {
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (sending || form.classList.contains('is-success')) return;
+
     if (!choices.some(button => button.dataset.rsvp === answer.value)) {
-      event.preventDefault();
       choices[0].focus();
       return;
     }
+
     name.value = name.value.trim();
     if (!name.value) {
-      event.preventDefault();
       name.setCustomValidity('Escribe tu nombre para enviar la respuesta.');
       name.reportValidity();
+      return;
+    }
+    if (!form.reportValidity()) return;
+
+    sending = true;
+    form.classList.add('is-sending');
+    submit.disabled = true;
+    submit.textContent = 'Enviando…';
+    choices.forEach(button => button.disabled = true);
+    status.textContent = 'Estamos enviando tu respuesta. Por favor, espera un momento.';
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error('No se pudo enviar la respuesta.');
+      const result = await response.json();
+      if (result.success === 'false' || result.success === false) {
+        throw new Error(result.message || 'No se pudo enviar la respuesta.');
+      }
+
+      form.classList.remove('is-sending');
+      form.classList.add('is-success');
+      [...form.elements].forEach(element => {
+        if (element !== status && element.type !== 'hidden') element.disabled = true;
+      });
+      submit.hidden = true;
+      status.textContent = '¡Listo! Recibimos tu respuesta. Muchas gracias.';
+    } catch (error) {
+      sending = false;
+      form.classList.remove('is-sending');
+      submit.disabled = false;
+      submit.textContent = 'Intentar nuevamente';
+      choices.forEach(button => button.disabled = false);
+      status.textContent = 'No pudimos confirmar el envío. Revisa tu conexión e inténtalo nuevamente.';
     }
   });
 })();
@@ -140,13 +202,40 @@ if('IntersectionObserver' in window&&!matchMedia('(prefers-reduced-motion: reduc
     const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
     if (Array.isArray(saved)) liked = new Set(saved);
   } catch {}
+
+  function celebrate(button) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const rect = button.getBoundingClientRect();
+    const colors = ['#b92d45', '#d7b66f', '#8c9e7d', '#e8c8b7', '#f5ead4'];
+    for (let i = 0; i < 24; i++) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+      piece.style.setProperty('--x', `${rect.left + rect.width / 2}px`);
+      piece.style.setProperty('--y', `${rect.top + rect.height / 2}px`);
+      piece.style.setProperty('--drift', `${Math.round((Math.random() - .5) * 230)}px`);
+      piece.style.setProperty('--fall', `${Math.round(100 + Math.random() * 260)}px`);
+      piece.style.setProperty('--spin', `${Math.round((Math.random() - .5) * 900)}deg`);
+      piece.style.setProperty('--duration', `${.9 + Math.random() * .8}s`);
+      piece.style.width = `${5 + Math.random() * 6}px`;
+      piece.style.height = `${7 + Math.random() * 8}px`;
+      document.body.appendChild(piece);
+      piece.addEventListener('animationend', () => piece.remove(), { once: true });
+    }
+  }
+
   for (const button of document.querySelectorAll('[data-photo-like]')) {
     const id = button.dataset.photoLike;
     const update = () => button.setAttribute('aria-pressed', String(liked.has(id)));
     update();
     button.addEventListener('click', () => {
-      if (liked.has(id)) liked.delete(id);
-      else liked.add(id);
+      if (liked.has(id)) {
+        liked.delete(id);
+      } else {
+        liked.add(id);
+        celebrate(button);
+      }
       update();
       try { localStorage.setItem(storageKey, JSON.stringify([...liked])); } catch {}
     });
