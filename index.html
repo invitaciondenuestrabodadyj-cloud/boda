@@ -82,7 +82,7 @@
 <button class="btn" type="button" data-rsvp="Sí, asistiré" aria-controls="rsvp-form" aria-pressed="false">Sí, asistiré</button>
 <button class="btn" type="button" data-rsvp="No podré asistir" aria-controls="rsvp-form" aria-pressed="false">No podré asistir</button>
 </div>
-<form id="rsvp-form" action="https://formsubmit.co/Invitaciondenuestrabodadyj@gmail.com" method="POST" hidden>
+<form id="rsvp-form" action="https://formsubmit.co/ajax/Invitaciondenuestrabodadyj@gmail.com" method="POST" hidden>
   <input type="hidden" name="_subject" value="Boda de Jeampier y Dayana · Respuesta de asistencia">
   <input type="hidden" name="_template" value="table">
   <input type="hidden" name="_captcha" value="false">
@@ -166,15 +166,27 @@ if('IntersectionObserver' in window&&!matchMedia('(prefers-reduced-motion: reduc
     status.textContent = 'Estamos enviando tu respuesta. Por favor, espera un momento.';
 
     try {
+      const payload = Object.fromEntries(new FormData(form).entries());
       const response = await fetch(form.action, {
         method: 'POST',
-        body: new FormData(form),
-        headers: { 'Accept': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
-      if (!response.ok) throw new Error('No se pudo enviar la respuesta.');
-      const result = await response.json();
-      if (result.success === 'false' || result.success === false) {
-        throw new Error(result.message || 'No se pudo enviar la respuesta.');
+
+      let result;
+      try {
+        result = await response.json();
+      } catch {
+        throw new Error('El servicio no devolvió una confirmación válida.');
+      }
+
+      // FormSubmit puede responder HTTP 200 incluso cuando el envío fue rechazado.
+      // Por eso hay que comprobar explícitamente success === "true".
+      if (!response.ok || String(result.success) !== 'true') {
+        throw new Error(result.message || 'FormSubmit no pudo aceptar la respuesta.');
       }
 
       form.classList.remove('is-sending');
