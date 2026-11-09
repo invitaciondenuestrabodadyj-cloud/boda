@@ -55,8 +55,8 @@
 #rsvp-form .success-mark{display:none;color:#657a5d;font:italic 2rem 'Cormorant Garamond',Georgia,serif;text-align:center}
 #rsvp-form.is-success .success-mark{display:block}
 @keyframes rsvp-spin{to{transform:rotate(360deg)}}
-.confetti-piece{position:fixed;z-index:30;top:0;left:0;width:9px;height:13px;pointer-events:none;will-change:transform,opacity;animation:confetti-fall var(--duration,1.4s) cubic-bezier(.15,.65,.35,1) forwards}
-@keyframes confetti-fall{0%{transform:translate3d(var(--x),var(--y),0) rotate(0) scale(1);opacity:1}100%{transform:translate3d(calc(var(--x) + var(--drift)),calc(var(--y) + var(--fall)),0) rotate(var(--spin)) scale(.65);opacity:0}}
+.confetti-piece{position:fixed;z-index:9999;top:0;left:0;width:9px;height:13px;pointer-events:none;will-change:transform,opacity;animation:confetti-burst var(--duration,2.1s) cubic-bezier(.12,.72,.22,1) forwards}
+@keyframes confetti-burst{0%{transform:translate3d(var(--x),var(--y),0) rotate(0) scale(.45);opacity:0}12%{opacity:1;transform:translate3d(var(--x),var(--y),0) rotate(45deg) scale(1.15)}100%{transform:translate3d(calc(var(--x) + var(--drift)),calc(var(--y) - var(--rise)),0) rotate(var(--spin)) scale(.7);opacity:0}}
 @media(prefers-reduced-motion:reduce){.confetti-piece{display:none}#rsvp-form .btn:after{animation:none}}
 
 @media(prefers-reduced-motion:reduce){.photo-like svg{transition:none}}
@@ -219,17 +219,17 @@ if('IntersectionObserver' in window&&!matchMedia('(prefers-reduced-motion: reduc
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const rect = button.getBoundingClientRect();
     const colors = ['#b92d45', '#d7b66f', '#8c9e7d', '#e8c8b7', '#f5ead4'];
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 85; i++) {
       const piece = document.createElement('span');
       piece.className = 'confetti-piece';
       piece.style.background = colors[Math.floor(Math.random() * colors.length)];
       piece.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
       piece.style.setProperty('--x', `${rect.left + rect.width / 2}px`);
       piece.style.setProperty('--y', `${rect.top + rect.height / 2}px`);
-      piece.style.setProperty('--drift', `${Math.round((Math.random() - .5) * 230)}px`);
-      piece.style.setProperty('--fall', `${Math.round(100 + Math.random() * 260)}px`);
+      piece.style.setProperty('--drift', `${Math.round((Math.random() - .5) * 560)}px`);
+      piece.style.setProperty('--rise', `${Math.round(260 + Math.random() * 520)}px`);
       piece.style.setProperty('--spin', `${Math.round((Math.random() - .5) * 900)}deg`);
-      piece.style.setProperty('--duration', `${.9 + Math.random() * .8}s`);
+      piece.style.setProperty('--duration', `${1.6 + Math.random() * 1.35}s`);
       piece.style.width = `${5 + Math.random() * 6}px`;
       piece.style.height = `${7 + Math.random() * 8}px`;
       document.body.appendChild(piece);
